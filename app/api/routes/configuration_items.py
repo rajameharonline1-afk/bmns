@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 from uuid import uuid4
 
@@ -15,6 +16,7 @@ from app.schemas.configuration_item import (
     ConfigurationItemUpdate,
     ConfigurationItemUploadRead,
 )
+from app.schemas.landing import LandingHomeContent, LandingMetric, LandingPageContent, LandingPlan
 
 router = APIRouter()
 
@@ -31,8 +33,25 @@ ALLOWED_KINDS = {
     "package",
     "district",
     "upazila",
+    "landing-home",
+    "landing-plan",
+    "landing-metric",
 }
 TOGGLE_KINDS = {"connection-type", "protocol-type", "billing-status"}
+
+DEFAULT_LANDING_HOME = LandingHomeContent(
+    brand_name="BMNS Fiber",
+    brand_subtitle="Smart broadband operations",
+    hero_tagline="Always-on fiber",
+    hero_title="Billing, automation, and real-time network observability for modern ISPs.",
+    hero_description="Offer smart plans, monitor OLTs and Mikrotiks live, and let customers pay on demand-all from a unified platform.",
+    primary_cta_label="Explore Packages",
+    primary_cta_href="#plans",
+    secondary_cta_label="Coverage Areas",
+    secondary_cta_href="#coverage",
+    spotlight_title="Metro North + Riverline",
+    spotlight_description="1200+ active ONUs monitored, 98.6% uptime, and 24/7 NOC response.",
+)
 
 
 def _validate_kind(kind: str) -> str:
@@ -77,6 +96,74 @@ def _sync_package_plan(db: Session, item: ConfigurationItem) -> None:
             plan.currency = "BDT"
 
     item.linked_plan_id = plan.id
+
+
+def _parse_landing_home(item: ConfigurationItem | None) -> LandingHomeContent:
+    if not item or not item.details:
+        return DEFAULT_LANDING_HOME
+    try:
+        payload = json.loads(item.details)
+        return LandingHomeContent(**payload)
+    except (ValueError, TypeError):
+        return DEFAULT_LANDING_HOME
+
+
+@router.get("/public/landing", response_model=LandingPageContent)
+def get_public_landing_content(db: Session = Depends(get_db)) -> LandingPageContent:
+    home_item = (
+        db.query(ConfigurationItem)
+        .filter(ConfigurationItem.kind == "landing-home")
+        .order_by(ConfigurationItem.id.desc())
+        .first()
+    )
+    metrics_rows = (
+        db.query(ConfigurationItem)
+        .filter(ConfigurationItem.kind == "landing-metric")
+        .order_by(ConfigurationItem.id.asc())
+        .all()
+    )
+    plans_rows = (
+        db.query(ConfigurationItem)
+        .filter(ConfigurationItem.kind == "landing-plan")
+        .order_by(ConfigurationItem.id.asc())
+        .all()
+    )
+
+    metrics = [
+        LandingMetric(id=row.id, label=row.name, value=row.details or "")
+        for row in metrics_rows
+        if row.name and row.details
+    ]
+    plans = [
+        LandingPlan(
+            id=row.id,
+            name=row.name,
+            speed=row.package_type or "-",
+            description=row.details or "",
+            price=str(row.price) if row.price is not None else "-",
+        )
+        for row in plans_rows
+        if row.name
+    ]
+
+    if not metrics:
+        metrics = [
+            LandingMetric(id=0, label="Latency (avg)", value="8ms"),
+            LandingMetric(id=0, label="Packet loss", value="0.3%"),
+            LandingMetric(id=0, label="Fiber kilometers", value="420 km"),
+        ]
+    if not plans:
+        plans = [
+            LandingPlan(id=0, name="Starter", speed="50 Mbps", description="Unlimited night data + priority support.", price="18"),
+            LandingPlan(id=0, name="Growth", speed="150 Mbps", description="Unlimited night data + priority support.", price="39"),
+            LandingPlan(id=0, name="Ultra", speed="1 Gbps", description="Unlimited night data + priority support.", price="89"),
+        ]
+
+    return LandingPageContent(
+        home=_parse_landing_home(home_item),
+        metrics=metrics,
+        plans=plans,
+    )
 
 
 @router.get("/{kind}", response_model=ConfigurationItemListRead)

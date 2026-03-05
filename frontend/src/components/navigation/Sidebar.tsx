@@ -68,6 +68,7 @@ const submenuMap: Record<string, { label: string; to: string }[]> = {
     { label: "Protocol Type", to: "/admin/section/configuration/protocol-type" },
     { label: "Billing Status", to: "/admin/section/configuration/billing-status" },
     { label: "Package", to: "/admin/section/configuration/package" },
+    { label: "Landing Content", to: "/admin/section/configuration/landing-content" },
     { label: "District", to: "/admin/section/configuration/district" },
     { label: "Upazila", to: "/admin/section/configuration/upazila" }
   ],

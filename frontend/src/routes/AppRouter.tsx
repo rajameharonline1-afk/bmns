@@ -11,6 +11,7 @@ import ImportFromMikrotik from "../pages/admin/ImportFromMikrotik";
 import OltManage from "../pages/admin/OltManage";
 import OnuInventory from "../pages/admin/OnuInventory";
 import ConfigurationMaster from "../pages/admin/ConfigurationMaster";
+import LandingContentManager from "../pages/admin/LandingContentManager";
 import ClientDashboard from "../pages/client/ClientDashboard";
 import ClientInvoices from "../pages/client/ClientInvoices";
 import ClientPayBill from "../pages/client/ClientPayBill";
@@ -53,6 +54,7 @@ const router = createBrowserRouter([
           { path: "admin/section/configuration/package", element: <ConfigurationMaster /> },
           { path: "admin/section/configuration/district", element: <ConfigurationMaster /> },
           { path: "admin/section/configuration/upazila", element: <ConfigurationMaster /> },
+          { path: "admin/section/configuration/landing-content", element: <LandingContentManager /> },
           { path: "admin/section/olt-management/olt-list", element: <OltManage /> },
           { path: "admin/section/olt-management/onu-inventory", element: <OnuInventory /> },
         ],
@@ -89,6 +91,7 @@ const router = createBrowserRouter([
           { path: "section/configuration/package", element: <ConfigurationMaster /> },
           { path: "section/configuration/district", element: <ConfigurationMaster /> },
           { path: "section/configuration/upazila", element: <ConfigurationMaster /> },
+          { path: "section/configuration/landing-content", element: <LandingContentManager /> },
           { path: "section/olt-management/olt-list", element: <OltManage /> },
           { path: "section/olt-management/onu-inventory", element: <OnuInventory /> },
         ],
