@@ -1,4 +1,11 @@
 import argparse
+import sys
+from pathlib import Path
+
+# Allow running this script directly from the project root.
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 
 from app.core.security import get_password_hash
 from app.db.session import SessionLocal

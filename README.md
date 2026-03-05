@@ -37,8 +37,9 @@ source .venv/Scripts/activate
 ```
 
 3. Install dependencies.
-
-Note: This repo currently does not include `requirements.txt`, so use the existing environment or maintain your own dependency list.
+```bash
+python -m pip install -r requirements.txt
+```
 
 4. Run backend:
 
