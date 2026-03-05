@@ -22,6 +22,11 @@ app.add_middleware(
 app.include_router(api_router, prefix="/api")
 app.mount("/uploads", StaticFiles(directory="uploads", check_dir=False), name="uploads")
 
+
+@app.get("/health")
+def healthcheck() -> dict:
+    return {"status": "ok"}
+
 # If a built frontend is present (frontend/dist), mount it so the backend can serve the SPA
 FRONTEND_DIST = Path(__file__).resolve().parents[1] / "frontend" / "dist"
 if FRONTEND_DIST.exists():
@@ -43,8 +48,3 @@ def login_redirect() -> RedirectResponse:
     if FRONTEND_DIST.exists():
         return RedirectResponse(url="/login")
     return RedirectResponse(url="http://localhost:5173/login")
-
-
-@app.get("/health")
-def healthcheck() -> dict:
-    return {"status": "ok"}
