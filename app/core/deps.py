@@ -28,6 +28,8 @@ def get_current_user(
         token_data = TokenPayload(**payload)
     except (JWTError, ValueError):
         raise credentials_exception
+    if token_data.token_type != "access":
+        raise credentials_exception
 
     user = get_user(db, int(token_data.sub))
     if not user:

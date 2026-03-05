@@ -34,9 +34,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (storedToken && !token) {
       const expiry = getTokenExpiry(storedToken);
       if (expiry && expiry <= Date.now()) {
-        authStorage.clear();
-        dispatch(clearCredentials());
-        setIsBootstrapping(false);
+        if (!storedRefreshToken) {
+          authStorage.clear();
+          dispatch(clearCredentials());
+          setIsBootstrapping(false);
+          return;
+        }
+        setIsBootstrapping(true);
+        authService.refreshAccessToken(storedRefreshToken)
+          .then(async (refreshed) => {
+            const profile = await authService.fetchProfile(refreshed.access_token);
+            authStorage.setAccessToken(refreshed.access_token);
+            authStorage.setRefreshToken(refreshed.refresh_token ?? storedRefreshToken);
+            authStorage.setUser(profile);
+            dispatch(setCredentials({
+              token: refreshed.access_token,
+              refreshToken: refreshed.refresh_token ?? storedRefreshToken,
+              user: profile,
+            }));
+          })
+          .catch(() => {
+            authStorage.clear();
+            dispatch(clearCredentials());
+          })
+          .finally(() => setIsBootstrapping(false));
         return;
       }
       dispatch(hydrateAuth({ token: storedToken, refreshToken: storedRefreshToken, user: storedUser }));

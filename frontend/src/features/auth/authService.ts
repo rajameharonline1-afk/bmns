@@ -3,7 +3,13 @@ import type { UserProfile } from "./types";
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
 
 const request = async (path: string, options: RequestInit) => {
-  const response = await fetch(`${API_BASE}${path}`, options);
+  const controller = new AbortController();
+  const timeout = window.setTimeout(() => controller.abort(), 12_000);
+  const response = await fetch(`${API_BASE}${path}`, {
+    cache: "no-store",
+    ...options,
+    signal: controller.signal,
+  }).finally(() => window.clearTimeout(timeout));
   if (!response.ok) {
     let message = response.statusText;
     try {

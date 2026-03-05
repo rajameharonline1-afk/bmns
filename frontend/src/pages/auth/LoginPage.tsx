@@ -28,6 +28,7 @@ const LoginPage = () => {
             <p className="text-sm text-slate-300">
               Track invoices, monitor ONU signals, and pay with one tap. Admins can use their internal SSO.
             </p>
+            <p className="text-xs text-cyan-200">Default admin login: admin / 1234</p>
             {error ? <p className="text-sm text-rose-300">{error}</p> : null}
           </div>
           <form className="space-y-4" onSubmit={handleSubmit}>

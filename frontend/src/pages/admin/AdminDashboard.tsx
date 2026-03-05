@@ -1,3 +1,4 @@
+import { useEffect, useMemo, useState } from "react";
 import {
   Area,
   AreaChart,
@@ -32,8 +33,25 @@ import {
 } from "lucide-react";
 import StatCard from "../../components/dashboard/StatCard";
 import ChartSection from "../../components/dashboard/ChartSection";
+import { useAuth } from "../../features/auth/AuthProvider";
 
-const kpiCards = [
+const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
+
+type DashboardSummary = {
+  kpi_cards: Array<{ title: string; value: string; subtitle: string }>;
+  finance_cards: Array<{ title: string; value: string; subtitle: string }>;
+  unpaid_clients: Array<{ user: string; mobile: string; bill: string; due: string }>;
+  monthly_new_clients: Array<{ month: string; value: number }>;
+  performance: Array<{ month: string; active: number; growth: number }>;
+  tickets: {
+    pending_tickets: number;
+    processing_tickets: number;
+    pending_tasks: number;
+    processing_tasks: number;
+  };
+};
+
+const defaultKpiCards = [
   { title: "Total Client", value: "692", subtitle: "Number of all clients at present", tone: "teal", icon: <Users className="h-5 w-5" /> },
   { title: "Running Clients", value: "642", subtitle: "Clients without left out status", tone: "green", icon: <Signal className="h-5 w-5" /> },
   { title: "Inactive Clients", value: "115", subtitle: "Clients whose status are inactive", tone: "purple", icon: <ShieldAlert className="h-5 w-5" /> },
@@ -85,7 +103,7 @@ const solverData = [
   { name: "Rasel", value: 3 }
 ];
 
-const newClientData = [
+const defaultNewClientData = [
   { month: "Jan", value: 16 },
   { month: "Feb", value: 13 },
   { month: "Mar", value: 18 },
@@ -93,7 +111,7 @@ const newClientData = [
   { month: "May", value: 20 }
 ];
 
-const performanceData = [
+const defaultPerformanceData = [
   { month: "Mar", active: 420, growth: 40 },
   { month: "Apr", active: 430, growth: 32 },
   { month: "May", active: 438, growth: 34 },
@@ -108,7 +126,7 @@ const performanceData = [
   { month: "Feb", active: 512, growth: 30 }
 ];
 
-const unpaidClients = [
+const defaultUnpaidClients = [
   { user: "R3545455", mobile: "01922268904", bill: "500.00", due: "5500.00" },
   { user: "R3545001", mobile: "+8801875764029", bill: "500.00", due: "2500.00" },
   { user: "R3545057", mobile: "01811311785", bill: "500.00", due: "2000.00" },
@@ -117,7 +135,7 @@ const unpaidClients = [
   { user: "R3545556", mobile: "01762160016", bill: "500.00", due: "1500.00" }
 ];
 
-const financeCards = [
+const defaultFinanceCards = [
   { title: "Monthly Bill", value: "260810", subtitle: "Current month customer bill", tone: "teal", icon: <FileText className="h-4 w-4" /> },
   { title: "Collected Bill", value: "208550", subtitle: "Current month received amount", tone: "green", icon: <Receipt className="h-4 w-4" /> },
   { title: "Discount", value: "600", subtitle: "Current month discount amount", tone: "purple", icon: <Percent className="h-4 w-4" /> },
@@ -140,7 +158,7 @@ const financeCards = [
   { title: "Cash On Hand", value: "209050", subtitle: "Current month cash on hand", tone: "slate", icon: <CreditCard className="h-4 w-4" /> }
 ];
 
-const StatusCard = ({ title, value, tone }: { title: string; value: string; tone: "red" | "orange" }) => {
+const StatusCard = ({ title, value, tone }: { title: string; value: string | number; tone: "red" | "orange" }) => {
   const toneClass = tone === "red" ? "bg-[#e8584b]" : "bg-[#f19a1b]";
   return (
     <div className={`rounded-md ${toneClass} px-3 py-3 text-white shadow-[0_6px_12px_rgba(15,23,42,0.2)]`}>
@@ -152,8 +170,69 @@ const StatusCard = ({ title, value, tone }: { title: string; value: string; tone
 };
 
 export default function AdminDashboard() {
+  const { token } = useAuth();
+  const [liveSummary, setLiveSummary] = useState<DashboardSummary | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!token) return;
+    const controller = new AbortController();
+    fetch(`${API_BASE}/api/dashboard/admin-summary`, {
+      headers: { Authorization: `Bearer ${token}` },
+      signal: controller.signal,
+      cache: "no-store",
+    })
+      .then(async (response) => {
+        if (!response.ok) {
+          throw new Error(await response.text());
+        }
+        return response.json() as Promise<DashboardSummary>;
+      })
+      .then((payload) => {
+        setLiveSummary(payload);
+        setLoadError(null);
+      })
+      .catch((error) => {
+        if (error instanceof DOMException && error.name === "AbortError") return;
+        setLoadError(error instanceof Error ? error.message : "Failed to load dashboard summary");
+      });
+
+    return () => controller.abort();
+  }, [token]);
+
+  const kpiCards = useMemo(() => {
+    if (!liveSummary) return defaultKpiCards;
+    const byTitle = new Map(liveSummary.kpi_cards.map((item) => [item.title, item]));
+    return defaultKpiCards.map((card) => {
+      const live = byTitle.get(card.title);
+      if (!live) return card;
+      return { ...card, value: live.value, subtitle: live.subtitle };
+    });
+  }, [liveSummary]);
+
+  const financeCards = useMemo(() => {
+    if (!liveSummary) return defaultFinanceCards;
+    const byTitle = new Map(liveSummary.finance_cards.map((item) => [item.title, item]));
+    return defaultFinanceCards.map((card) => {
+      const live = byTitle.get(card.title);
+      if (!live) return card;
+      return { ...card, value: live.value, subtitle: live.subtitle };
+    });
+  }, [liveSummary]);
+
+  const unpaidClients = liveSummary?.unpaid_clients.length ? liveSummary.unpaid_clients : defaultUnpaidClients;
+  const newClientData = liveSummary?.monthly_new_clients?.length ? liveSummary.monthly_new_clients : defaultNewClientData;
+  const performanceData = liveSummary?.performance?.length ? liveSummary.performance : defaultPerformanceData;
+  const tickets = liveSummary?.tickets ?? {
+    pending_tickets: 0,
+    processing_tickets: 0,
+    pending_tasks: 0,
+    processing_tasks: 0,
+  };
+
   return (
     <section className="space-y-4">
+      {loadError ? <p className="rounded-md border border-rose-300 bg-rose-50 px-3 py-2 text-xs text-rose-700">{loadError}</p> : null}
       <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
         {kpiCards.map((card) => (
           <StatCard key={card.title} {...card} />
@@ -210,10 +289,10 @@ export default function AdminDashboard() {
         </ChartSection>
 
         <div className="space-y-2">
-          <StatusCard title="Pending Tickets" value="0" tone="red" />
-          <StatusCard title="Processing Tickets" value="0" tone="orange" />
-          <StatusCard title="Pending Task" value="0" tone="red" />
-          <StatusCard title="Processing Task" value="0" tone="orange" />
+          <StatusCard title="Pending Tickets" value={tickets.pending_tickets} tone="red" />
+          <StatusCard title="Processing Tickets" value={tickets.processing_tickets} tone="orange" />
+          <StatusCard title="Pending Task" value={tickets.pending_tasks} tone="red" />
+          <StatusCard title="Processing Task" value={tickets.processing_tasks} tone="orange" />
         </div>
 
         <ChartSection title="Monthly Problem Occurrence">

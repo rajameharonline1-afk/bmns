@@ -1,0 +1,9 @@
+{
+  "expo": {
+    "name": "BMNS Mobile",
+    "slug": "bmns-mobile",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "platforms": ["android", "ios", "web"]
+  }
+}

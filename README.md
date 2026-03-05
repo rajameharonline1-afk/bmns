@@ -1,115 +1,153 @@
-# BMNS
+# BMNS - ISP Billing & Network Automation
 
-BMNS is a full-stack project:
-- Backend: FastAPI + Alembic + PostgreSQL
-- Frontend: React + Vite + TypeScript
+BMNS is now structured as a multi-service full-stack platform with your requested stack:
 
-## Project Structure
+- `django_backend/` : Django billing/admin backend (MySQL)
+- `app/` : FastAPI network automation API (EasySNMP + RouterOS API + Celery + Redis + MySQL)
+- `frontend/` : React.js + Tailwind CSS web frontend
+- `mobile_app/` : React Native (Expo) mobile app
 
-```
-bmns/
-  app/                # FastAPI app
-  alembic/            # DB migrations
-  frontend/           # React frontend
-  uploads/            # Uploaded files
-  tests/              # Backend tests
-```
+## Requested Credentials
 
-## Prerequisites
+- Database Host: `172.16.3.10`
+- Database Name: `bmns_db`
+- Database User: `bmns_user`
+- Database Password: `bmns!010230`
+- Login: `admin / 1234`
 
-- Python 3.11+ (the project currently uses a local `.venv`)
-- Node.js 18+ and npm
-- PostgreSQL
-
-## Backend Setup (Windows / Git Bash)
-
-1. Go to project root:
+## 1) Python Dependencies
 
 ```bash
-cd /c/Users/bdida/PyCharmMiscProject/bmns
+pip install -r requirements.txt
 ```
 
-2. Activate virtual environment (if you are setting up fresh):
+## 2) Environment
+
+Copy `.env.example` to `.env` if needed.
 
 ```bash
-python -m venv .venv
-source .venv/Scripts/activate
+copy .env.example .env
 ```
 
-3. Install dependencies.
-```bash
-python -m pip install -r requirements.txt
-```
+## 3) FastAPI Backend (Automation API)
 
-4. Run backend:
+Run API:
 
 ```bash
 python -m uvicorn app.main:app --reload
 ```
 
-Or:
+Health check:
 
-```bash
-./run-backend.cmd
-```
+- `http://127.0.0.1:8000/health`
 
-Backend URL: `http://127.0.0.1:8000`  
-Health check: `http://127.0.0.1:8000/health`
-
-## Database Migration
-
-To apply migrations:
+Apply SQLAlchemy migrations:
 
 ```bash
 alembic upgrade head
 ```
 
-To generate a new migration (PowerShell):
-
-```powershell
-.\scripts\make_migration.ps1 -Message "your_migration_message"
-```
-
-## Frontend Setup
-
-1. Go to frontend folder:
+Bootstrap default admin user for FastAPI auth:
 
 ```bash
-cd /c/Users/bdida/PyCharmMiscProject/bmns/frontend
+python scripts/bootstrap_admin.py
 ```
 
-2. Install dependencies:
+Login endpoint:
+
+- `POST /api/auth/login` with `admin / 1234`
+
+Network automation endpoints:
+
+- `POST /api/automation/snapshot`
+- `GET /api/automation/tasks/{task_id}`
+
+## 4) Celery + Redis
+
+Start Redis server (local or remote).
+
+Run Celery worker:
 
 ```bash
+celery -A app.core.celery_app.celery_app worker --loglevel=info
+```
+
+## 5) Django Backend (Billing + Admin)
+
+Go to Django folder:
+
+```bash
+cd django_backend
+```
+
+Create migrations and migrate:
+
+```bash
+python manage.py makemigrations
+python manage.py migrate
+```
+
+Create/update default Django admin:
+
+```bash
+python manage.py seed_admin
+```
+
+Run Django:
+
+```bash
+python manage.py runserver
+```
+
+Django admin URL:
+
+- `http://127.0.0.1:8000/admin/`
+- Username: `admin`
+- Password: `1234`
+
+## 6) React Web Frontend (FastAPI + React + Tailwind)
+
+```bash
+cd frontend
 npm install
-```
-
-3. Run dev server:
-
-```bash
 npm run dev
 ```
 
-Or:
+Web URL:
+
+- `http://localhost:5173`
+
+## 7) React Native Mobile App
 
 ```bash
-./run-dev.cmd
+cd mobile_app
+npm install
+npm run start
 ```
 
-Frontend URL: `http://localhost:5173`
+Default mobile login fields are prefilled with:
 
-## Run Backend + Frontend Together
+- Username: `admin`
+- Password: `1234`
 
-Open two terminals:
-- Terminal 1 (root): `python -m uvicorn app.main:app --reload`
-- Terminal 2 (`frontend/`): `npm run dev`
+## Notes
 
-Then open `http://localhost:5173` in your browser.
+- FastAPI and Django can share the same MySQL instance.
+- If `easysnmp` build fails on Windows, install Net-SNMP first.
+- RouterOS automation requires reachable MikroTik API service/credentials.
 
-## Git Workflow
+## Quick Start (All Services)
 
-```bash
-git add .
-git commit -m "your message"
-git push
-```
+- PowerShell: `.\scripts\start_all.ps1`
+- Git Bash: `bash scripts/start_all.sh`
+
+This starts:
+- FastAPI (`:8001`)
+- Celery worker
+- Django (`:8000`)
+- React frontend (`:5173`)
+
+## Dashboard Live API
+
+- Frontend admin dashboard now consumes: `GET /api/dashboard/admin-summary`
+- Auth refresh endpoint: `POST /api/auth/refresh`
