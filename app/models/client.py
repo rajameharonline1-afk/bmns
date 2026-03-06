@@ -18,6 +18,7 @@ class Client(Base, TimestampMixin):
     __tablename__ = "clients"
 
     id: Mapped[int] = mapped_column(primary_key=True)
+    client_code: Mapped[str] = mapped_column(String(64), unique=True, index=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), unique=True, index=True)
     plan_id: Mapped[int] = mapped_column(ForeignKey("plans.id"), index=True)
     pppoe_username: Mapped[str] = mapped_column(String(64), unique=True, index=True)

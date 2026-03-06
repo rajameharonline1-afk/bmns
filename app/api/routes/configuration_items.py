@@ -37,9 +37,12 @@ ALLOWED_KINDS = {
     "landing-plan",
     "landing-metric",
 }
+UPLOAD_IMAGE_KINDS = {"client-type", "landing-home"}
 TOGGLE_KINDS = {"connection-type", "protocol-type", "billing-status"}
 
 DEFAULT_LANDING_HOME = LandingHomeContent(
+    logo_text="BM",
+    logo_image_path=None,
     brand_name="BMNS Fiber",
     brand_subtitle="Smart broadband operations",
     hero_tagline="Always-on fiber",
@@ -51,6 +54,7 @@ DEFAULT_LANDING_HOME = LandingHomeContent(
     secondary_cta_href="#coverage",
     spotlight_title="Metro North + Riverline",
     spotlight_description="1200+ active ONUs monitored, 98.6% uptime, and 24/7 NOC response.",
+    slider_images=[],
 )
 
 
@@ -164,6 +168,31 @@ def get_public_landing_content(db: Session = Depends(get_db)) -> LandingPageCont
         metrics=metrics,
         plans=plans,
     )
+
+
+@router.post("/image-upload", response_model=ConfigurationItemUploadRead)
+def upload_configuration_image(
+    kind: str = Query(..., description="currently supported: client-type, landing-home"),
+    file: UploadFile = File(...),
+    _user=Depends(require_roles("admin", "manager")),
+) -> ConfigurationItemUploadRead:
+    if kind not in UPLOAD_IMAGE_KINDS:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Unsupported upload kind")
+    if file.content_type not in ALLOWED_IMAGE_TYPES:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Only jpeg/png/webp images are allowed")
+
+    suffix = Path(file.filename or "").suffix.lower() or ".png"
+    if suffix not in {".jpg", ".jpeg", ".png", ".webp"}:
+        suffix = ".png"
+
+    UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+    filename = f"{kind.replace('-', '_')}_{uuid4().hex}{suffix}"
+    absolute_path = UPLOAD_DIR / filename
+    content = file.file.read()
+    if not content:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Uploaded file is empty")
+    absolute_path.write_bytes(content)
+    return ConfigurationItemUploadRead(file_path=f"/uploads/configuration/{filename}")
 
 
 @router.get("/{kind}", response_model=ConfigurationItemListRead)
@@ -296,28 +325,3 @@ def delete_configuration_item(
     item = _get_item(db, kind, item_id)
     db.delete(item)
     db.commit()
-
-
-@router.post("/image-upload", response_model=ConfigurationItemUploadRead)
-def upload_configuration_image(
-    kind: str = Query(..., description="currently supported: client-type"),
-    file: UploadFile = File(...),
-    _user=Depends(require_roles("admin", "manager")),
-) -> ConfigurationItemUploadRead:
-    if kind != "client-type":
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Unsupported upload kind")
-    if file.content_type not in ALLOWED_IMAGE_TYPES:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Only jpeg/png/webp images are allowed")
-
-    suffix = Path(file.filename or "").suffix.lower() or ".png"
-    if suffix not in {".jpg", ".jpeg", ".png", ".webp"}:
-        suffix = ".png"
-
-    UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
-    filename = f"client_type_{uuid4().hex}{suffix}"
-    absolute_path = UPLOAD_DIR / filename
-    content = file.file.read()
-    if not content:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Uploaded file is empty")
-    absolute_path.write_bytes(content)
-    return ConfigurationItemUploadRead(file_path=f"/uploads/configuration/{filename}")

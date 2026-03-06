@@ -138,6 +138,7 @@ Default mobile login fields are prefilled with:
 
 ## Quick Start (All Services)
 
+- One-click (Windows): `start-all.cmd`
 - PowerShell: `.\scripts\start_all.ps1`
 - Git Bash: `bash scripts/start_all.sh`
 
@@ -146,6 +147,9 @@ This starts:
 - Celery worker
 - Django (`:8000`)
 - React frontend (`:5173`)
+
+To stop all services on Windows:
+- `stop-all.cmd`
 
 ## Dashboard Live API
 

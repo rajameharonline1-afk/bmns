@@ -2,6 +2,8 @@ from app.schemas.base import APIModel
 
 
 class LandingHomeContent(APIModel):
+    logo_text: str = "BM"
+    logo_image_path: str | None = None
     brand_name: str
     brand_subtitle: str
     hero_tagline: str
@@ -13,6 +15,7 @@ class LandingHomeContent(APIModel):
     secondary_cta_href: str
     spotlight_title: str
     spotlight_description: str
+    slider_images: list[str] = []
 
 
 class LandingMetric(APIModel):

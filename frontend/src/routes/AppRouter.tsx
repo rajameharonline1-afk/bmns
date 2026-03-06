@@ -12,9 +12,16 @@ import OltManage from "../pages/admin/OltManage";
 import OnuInventory from "../pages/admin/OnuInventory";
 import ConfigurationMaster from "../pages/admin/ConfigurationMaster";
 import LandingContentManager from "../pages/admin/LandingContentManager";
+import AdminClientPortalManager from "../pages/admin/AdminClientPortalManager";
 import ClientDashboard from "../pages/client/ClientDashboard";
 import ClientInvoices from "../pages/client/ClientInvoices";
 import ClientPayBill from "../pages/client/ClientPayBill";
+import ClientChangeUpdate from "../pages/client/ClientChangeUpdate";
+import ClientMediaServers from "../pages/client/ClientMediaServers";
+import ClientNotices from "../pages/client/ClientNotices";
+import ClientSupportTickets from "../pages/client/ClientSupportTickets";
+import ClientContactCenter from "../pages/client/ClientContactCenter";
+import ClientProfile from "../pages/client/ClientProfile";
 import LoginPage from "../pages/auth/LoginPage";
 import LandingPage from "../pages/public/LandingPage";
 import NotFound from "../pages/public/NotFound";
@@ -55,6 +62,7 @@ const router = createBrowserRouter([
           { path: "admin/section/configuration/district", element: <ConfigurationMaster /> },
           { path: "admin/section/configuration/upazila", element: <ConfigurationMaster /> },
           { path: "admin/section/configuration/landing-content", element: <LandingContentManager /> },
+          { path: "admin/section/configuration/client-portal-content", element: <AdminClientPortalManager /> },
           { path: "admin/section/olt-management/olt-list", element: <OltManage /> },
           { path: "admin/section/olt-management/onu-inventory", element: <OnuInventory /> },
         ],
@@ -65,6 +73,12 @@ const router = createBrowserRouter([
           { path: "client", element: <ClientDashboard /> },
           { path: "client/invoices", element: <ClientInvoices /> },
           { path: "client/pay", element: <ClientPayBill /> },
+          { path: "client/change-update", element: <ClientChangeUpdate /> },
+          { path: "client/media-servers", element: <ClientMediaServers /> },
+          { path: "client/notices", element: <ClientNotices /> },
+          { path: "client/tickets", element: <ClientSupportTickets /> },
+          { path: "client/contact", element: <ClientContactCenter /> },
+          { path: "client/profile", element: <ClientProfile /> },
         ],
       },
       { path: "forbidden", element: <Forbidden /> },
@@ -92,6 +106,7 @@ const router = createBrowserRouter([
           { path: "section/configuration/district", element: <ConfigurationMaster /> },
           { path: "section/configuration/upazila", element: <ConfigurationMaster /> },
           { path: "section/configuration/landing-content", element: <LandingContentManager /> },
+          { path: "section/configuration/client-portal-content", element: <AdminClientPortalManager /> },
           { path: "section/olt-management/olt-list", element: <OltManage /> },
           { path: "section/olt-management/onu-inventory", element: <OnuInventory /> },
         ],

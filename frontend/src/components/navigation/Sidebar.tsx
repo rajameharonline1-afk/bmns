@@ -26,9 +26,18 @@ import {
   TrendingUp,
   Upload,
   Users,
-  UsersRound
+  UsersRound,
+  Wallet,
+  History,
+  RefreshCw,
+  Tv,
+  Info,
+  LifeBuoy,
+  Phone,
+  UserRound
 } from "lucide-react";
 import rajameharLogo from "../../assets/rajamehar-online.png";
+import { useAuth } from "../../contexts/AuthContext";
 
 const menuSections = [
   { label: "Dashboard", to: "/" },
@@ -69,6 +78,7 @@ const submenuMap: Record<string, { label: string; to: string }[]> = {
     { label: "Billing Status", to: "/admin/section/configuration/billing-status" },
     { label: "Package", to: "/admin/section/configuration/package" },
     { label: "Landing Content", to: "/admin/section/configuration/landing-content" },
+    { label: "Client Portal Content", to: "/admin/section/configuration/client-portal-content" },
     { label: "District", to: "/admin/section/configuration/district" },
     { label: "Upazila", to: "/admin/section/configuration/upazila" }
   ],
@@ -269,7 +279,9 @@ const subLinkClass = ({ isActive }: { isActive: boolean }) =>
 
 const Sidebar = () => {
   const location = useLocation();
+  const { user } = useAuth();
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({});
+  const isClient = user?.role === "client" || location.pathname.startsWith("/app/client");
 
   const activeSectionKey = useMemo(() => {
     const path = location.pathname;
@@ -288,8 +300,58 @@ const Sidebar = () => {
     setOpenSections((prev) => ({ ...prev, [key]: !prev[key] }));
   };
 
+  if (isClient) {
+    const clientMenu = [
+      { label: "Dashboard", to: "/app/client", icon: LayoutDashboard },
+      { label: "Recharge/Pay Bill", to: "/app/client/pay", icon: Wallet },
+      { label: "Payment History", to: "/app/client/invoices", icon: History },
+      { label: "Change/Update", to: "/app/client/change-update", icon: RefreshCw },
+      { label: "Media Servers", to: "/app/client/media-servers", icon: Tv },
+      { label: "Notices & Queries", to: "/app/client/notices", icon: Info },
+      { label: "Support Tickets", to: "/app/client/tickets", icon: LifeBuoy },
+      { label: "Contact Center", to: "/app/client/contact", icon: Phone },
+      { label: "My Profile", to: "/app/client/profile", icon: UserRound },
+    ];
+    return (
+      <aside className="fixed inset-y-0 left-0 hidden w-[280px] flex-col bg-[#163c5b] px-4 py-5 text-white lg:flex">
+        <div className="flex items-center justify-between border-b border-white/10 pb-4">
+          <div className="text-[30px] font-bold leading-none">Rajamehar online</div>
+          <div className="text-2xl text-white/80">☰</div>
+        </div>
+        <input
+          type="text"
+          placeholder="Menu Search..."
+          className="mt-3 rounded-md border border-white/15 bg-white px-3 py-2 text-sm text-slate-700 placeholder:text-slate-500 focus:outline-none"
+        />
+        <nav className="hide-scrollbar mt-2 flex-1 space-y-1 overflow-y-auto pr-2">
+          {clientMenu.map((item) => {
+            const Icon = item.icon;
+            return (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                end={item.to === "/app/client"}
+                title={item.label}
+                className={({ isActive }) =>
+                  `flex items-center gap-3 rounded-md px-3 py-2 text-sm font-semibold transition ${
+                    isActive
+                      ? "bg-[#2f6ea3] text-white"
+                      : "bg-[#244a69] text-white hover:bg-[#2f6ea3]"
+                  }`
+                }
+              >
+                <Icon className="h-4 w-4" />
+                <span className="uppercase tracking-wide">{item.label}</span>
+              </NavLink>
+            );
+          })}
+        </nav>
+      </aside>
+    );
+  }
+
   return (
-    <aside className="fixed inset-y-0 left-0 hidden w-[280px] flex-col bg-[#1f4e6e] px-4 py-6 text-white lg:flex">
+    <aside className="fixed inset-y-0 left-0 hidden w-[280px] flex-col bg-[var(--bmns-sidebar)] px-4 py-6 text-white lg:flex">
       <div className="flex items-center gap-3 border-b border-white/10 pb-4">
         <div className="flex h-11 w-11 items-center justify-center rounded-md bg-white/90 p-1">
           <img src={rajameharLogo} alt="Rajamehar Online" className="h-full w-full object-contain" />

@@ -1,28 +1,32 @@
+﻿import ClientPlaceholderPage from "./ClientPlaceholderPage";
+
 const ClientPayBill = () => {
   return (
-    <section className="grid gap-6">
-      <div>
-        <p className="text-xs uppercase tracking-[0.3em] text-cyan-200">Pay Bill</p>
-        <h2 className="mt-2 text-3xl font-semibold text-white">Settle your invoice</h2>
-      </div>
-      <div className="grid gap-4 md:grid-cols-2">
-        <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
-          <p className="text-xs uppercase text-slate-400">Amount due</p>
-          <p className="mt-4 text-3xl font-semibold text-white">$39.00</p>
-          <button className="mt-6 w-full rounded-2xl bg-cyan-400 py-3 text-sm font-semibold text-slate-900">
-            Pay with Wallet
-          </button>
+    <ClientPlaceholderPage
+      title="Recharge/Pay Bill"
+      subtitle="Pay your due bill and submit recharge from the client panel."
+      actions={
+        <>
+          <button className="rounded-md bg-[#0f7fbc] px-4 py-2 text-sm font-semibold text-white">Pay with bKash</button>
+          <button className="rounded-md bg-[#1f4e6e] px-4 py-2 text-sm font-semibold text-white">Pay with Nagad</button>
+          <button className="rounded-md border border-[#d6dee8] bg-white px-4 py-2 text-sm font-semibold text-slate-700">Bank Transfer</button>
+        </>
+      }
+    >
+      <div className="grid gap-3 md:grid-cols-2">
+        <div className="rounded-md border border-[#d6dee8] bg-[#f8fbfe] p-4">
+          <p className="text-xs uppercase tracking-wide text-slate-500">Current Due</p>
+          <p className="mt-2 text-3xl font-bold text-[#1f4e6e]">TK 500.00</p>
+          <p className="mt-1 text-sm text-slate-500">Due date: 10 March 2026</p>
         </div>
-        <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
-          <p className="text-xs uppercase text-slate-400">Payment options</p>
-          <div className="mt-4 grid gap-3 text-sm text-slate-300">
-            <button className="rounded-xl border border-white/10 px-4 py-3 text-left">Card / Mobile Money</button>
-            <button className="rounded-xl border border-white/10 px-4 py-3 text-left">Bank Transfer</button>
-            <button className="rounded-xl border border-white/10 px-4 py-3 text-left">USSD</button>
-          </div>
+        <div className="rounded-md border border-[#d6dee8] bg-white p-4">
+          <label className="mb-1 block text-sm font-medium text-slate-700">Amount</label>
+          <input className="mb-3 w-full rounded-md border border-[#d6dee8] px-3 py-2 text-sm" defaultValue="500" />
+          <label className="mb-1 block text-sm font-medium text-slate-700">Reference (optional)</label>
+          <input className="w-full rounded-md border border-[#d6dee8] px-3 py-2 text-sm" placeholder="Transaction ID" />
         </div>
       </div>
-    </section>
+    </ClientPlaceholderPage>
   );
 };
 

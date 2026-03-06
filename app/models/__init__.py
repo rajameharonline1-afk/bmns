@@ -1,4 +1,9 @@
 from app.models.client import Client
+from app.models.client_portal import (
+    ClientPortalPost,
+    ClientSupportTicket,
+    ClientUsageStat,
+)
 from app.models.client_onboarding import ClientOnboarding
 from app.models.configuration_item import ConfigurationItem
 from app.models.invoice import Invoice, InvoiceItem, Payment
@@ -12,6 +17,9 @@ from app.models.user import User, user_roles
 
 __all__ = [
     "Client",
+    "ClientPortalPost",
+    "ClientSupportTicket",
+    "ClientUsageStat",
     "ClientOnboarding",
     "ConfigurationItem",
     "Invoice",

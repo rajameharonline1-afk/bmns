@@ -45,3 +45,44 @@ class AdminDashboardSummary(APIModel):
     monthly_new_clients: list[TimeSeriesPoint]
     performance: list[PerformancePoint]
     tickets: TicketSummary
+
+
+class ClientDashboardTile(APIModel):
+    title: str
+    value: str
+    subtitle: str
+    footer_action: str
+    tone: str
+
+
+class ClientUsageSummary(APIModel):
+    uptime_label: str
+    downloaded_gb: str
+    uploaded_gb: str
+
+
+class ClientTicketSummary(APIModel):
+    title: str
+    status: str
+    action_label: str
+
+
+class ClientPostItem(APIModel):
+    id: int
+    title: str
+    body: str
+    image_path: str | None = None
+    published_label: str
+
+
+class ClientDashboardSummary(APIModel):
+    login_code: str
+    server_ip: str
+    package_name: str
+    package_speed_label: str
+    tiles: list[ClientDashboardTile]
+    usage: ClientUsageSummary
+    ticket: ClientTicketSummary
+    message: ClientPostItem | None = None
+    news: list[ClientPostItem]
+    notices: list[ClientPostItem]

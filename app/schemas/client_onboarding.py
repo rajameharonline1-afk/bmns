@@ -27,6 +27,7 @@ class AddNewClientOptions(APIModel):
 
 class AddNewClientCreate(APIModel):
     server_id: int
+    client_code: str | None = None
     customer_name: str
     username: str
     password: str
@@ -91,6 +92,7 @@ class AddNewClientRead(APIModel):
     id: int
     user_id: int
     client_id: int
+    client_code: str
     customer_name: str
     username: str
 
@@ -107,3 +109,7 @@ class AddNewClientServerProfilesRead(APIModel):
 
 class AddNewClientUsernameCheckRead(APIModel):
     available: bool
+
+
+class AddNewClientCodeSuggestionRead(APIModel):
+    client_code: str

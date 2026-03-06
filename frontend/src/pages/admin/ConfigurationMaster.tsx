@@ -370,7 +370,7 @@ export default function ConfigurationMaster() {
       {error ? <div className="rounded border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">{error}</div> : null}
       {notice ? <div className="rounded border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">{notice}</div> : null}
 
-      <div className="rounded-md border border-slate-300 bg-white p-3">
+      <div className="ds-card p-3">
         <div className="mb-3 flex items-center justify-between">
           <div className="flex items-center gap-2 text-xs text-slate-600">
             <span>SHOW</span>
@@ -393,8 +393,8 @@ export default function ConfigurationMaster() {
         </div>
 
         <div className="overflow-x-auto">
-          <table className="min-w-full border border-slate-200 text-sm">
-            <thead className="bg-[#234a69] text-white">
+          <table className="ds-table min-w-full border border-slate-200 text-sm">
+            <thead>
               <tr>{renderTableHead().map((head) => <th key={head} className="border border-white/20 px-3 py-2 text-center">{head}</th>)}</tr>
             </thead>
             <tbody className="bg-white text-slate-700">
@@ -450,11 +450,16 @@ export default function ConfigurationMaster() {
                   )}
                   <td className="px-3 py-2 text-center">
                     <div className="inline-flex items-center gap-3">
-                      <button type="button" onClick={() => openEdit(row)} className="text-emerald-600 hover:text-emerald-700"><Pencil className="h-4 w-4" /></button>
-                      <button type="button" disabled={busyId === row.id} onClick={() => removeRow(row)} className="text-rose-600 hover:text-rose-700 disabled:opacity-50"><Trash2 className="h-4 w-4" /></button>
+                      <button type="button" title="Edit" onClick={() => openEdit(row)} className="text-emerald-600 hover:text-emerald-700"><Pencil className="h-4 w-4" /></button>
+                      <button type="button" title="Delete" disabled={busyId === row.id} onClick={() => removeRow(row)} className="text-rose-600 hover:text-rose-700 disabled:opacity-50"><Trash2 className="h-4 w-4" /></button>
                       {meta.toggle ? (
-                        <button type="button" disabled={busyId === row.id} onClick={() => toggleRow(row)} className={`relative inline-flex h-6 w-12 rounded-full transition ${row.is_active ? "bg-[#2490ea]" : "bg-slate-300"}`}>
-                          <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white transition ${row.is_active ? "left-6" : "left-0.5"}`} />
+                        <button
+                          type="button"
+                          title={row.is_active ? "Deactivate" : "Activate"}
+                          disabled={busyId === row.id}
+                          onClick={() => toggleRow(row)}
+                          className={`ds-toggle ${row.is_active ? "on" : "off"}`}
+                        >
                         </button>
                       ) : null}
                     </div>
@@ -478,8 +483,8 @@ export default function ConfigurationMaster() {
       </div>
 
       {open ? (
-        <div className="fixed inset-0 z-40 flex items-start justify-center bg-black/25 px-3 pt-16">
-          <div className="w-full max-w-[520px] rounded-md bg-[#f7f7f7] p-6 shadow-2xl">
+        <div className="ds-modal-backdrop z-40 flex items-start justify-center px-3 pt-16">
+          <div className="ds-modal w-full max-w-[520px] p-6">
             <div className="mb-3 flex items-start justify-between">
               <h3 className="text-[40px] font-semibold text-slate-700">{editing ? `Edit ${meta.title}` : `Add ${meta.title}`}</h3>
               <button type="button" className="text-slate-400" onClick={() => setOpen(false)}><X className="h-5 w-5" /></button>
@@ -551,9 +556,7 @@ export default function ConfigurationMaster() {
               {kind === "package" ? (
                 <div className="flex items-center justify-between pt-2 text-sm font-semibold text-slate-600">
                   <span>Do you want this to be displayed on your client profile?</span>
-                  <button type="button" onClick={() => setForm((prev) => ({ ...prev, show_on_client_profile: !prev.show_on_client_profile }))} className={`relative inline-flex h-6 w-12 rounded-full ${form.show_on_client_profile ? "bg-[#2490ea]" : "bg-slate-300"}`}>
-                    <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white transition ${form.show_on_client_profile ? "left-6" : "left-0.5"}`} />
-                  </button>
+                  <button type="button" onClick={() => setForm((prev) => ({ ...prev, show_on_client_profile: !prev.show_on_client_profile }))} className={`ds-toggle ${form.show_on_client_profile ? "on" : "off"}`} />
                 </div>
               ) : null}
 

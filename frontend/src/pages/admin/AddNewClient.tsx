@@ -6,7 +6,7 @@ import { useAuth } from "../../features/auth/AuthProvider";
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "";
 const API_BASES = (() => {
   const host = typeof window !== "undefined" ? window.location.hostname : "localhost";
-  return Array.from(new Set([API_BASE, `http://${host}:8000`, "http://localhost:8000", "http://127.0.0.1:8000"]));
+  return Array.from(new Set([API_BASE, `http://${host}:8001`, "http://localhost:8001", "http://127.0.0.1:8001", `http://${host}:8000`, "http://localhost:8000", "http://127.0.0.1:8000"]));
 })();
 
 type OptionItem = { value: string; label: string };
@@ -38,6 +38,7 @@ type QuickConfigForm = {
 };
 
 type FormState = {
+  client_code: string;
   customer_name: string;
   remarks: string;
   nid_or_certificate_no: string;
@@ -94,6 +95,7 @@ type FormState = {
 const getTodayIso = () => new Date().toISOString().slice(0, 10);
 
 const createInitialForm = (): FormState => ({
+  client_code: "",
   customer_name: "",
   remarks: "",
   nid_or_certificate_no: "",
@@ -148,25 +150,43 @@ const createInitialForm = (): FormState => ({
 });
 
 const request = async (path: string, options: RequestInit) => {
-  let networkError: unknown = null;
+  let fallbackError: Error | null = null;
   for (const base of API_BASES) {
     try {
       const response = await fetch(`${base}${path}`, options);
-      if (!response.ok) {
-        const message = await response.text();
-        throw new Error(message || response.statusText);
+      if (response.ok) {
+        if (response.status === 204) return null;
+        return response.json();
       }
-      if (response.status === 204) return null;
-      return response.json();
-    } catch (err) {
-      if (err instanceof TypeError) {
-        networkError = err;
+
+      // Wrong service/route candidate (e.g. Django on :8000), try next base.
+      if (response.status === 404 || response.status === 405) {
         continue;
       }
-      throw err;
+
+      let message = response.statusText || "Request failed";
+      try {
+        const payload = await response.json();
+        if (typeof payload?.detail === "string") {
+          message = payload.detail;
+        } else if (typeof payload?.message === "string") {
+          message = payload.message;
+        }
+      } catch {
+        const text = await response.text();
+        if (text) message = text;
+      }
+      throw new Error(message);
+    } catch (err) {
+      if (err instanceof TypeError) {
+        fallbackError = err;
+        continue;
+      }
+      fallbackError = err instanceof Error ? err : new Error("Failed to fetch");
+      continue;
     }
   }
-  throw networkError instanceof Error ? networkError : new Error("Failed to fetch");
+  throw fallbackError ?? new Error("Failed to fetch");
 };
 
 const Section = ({ title, children }: { title: string; children: ReactNode }) => (
@@ -197,6 +217,7 @@ export default function AddNewClient() {
   const [serverProfiles, setServerProfiles] = useState<string[]>([]);
   const [profileLoading, setProfileLoading] = useState(false);
   const [usernameAvailability, setUsernameAvailability] = useState<"" | "checking" | "available" | "not_available">("");
+  const [clientCodeHint, setClientCodeHint] = useState<string>("");
   const profileInputRef = useRef<HTMLInputElement | null>(null);
   const nidInputRef = useRef<HTMLInputElement | null>(null);
   const regInputRef = useRef<HTMLInputElement | null>(null);
@@ -370,6 +391,18 @@ export default function AddNewClient() {
     }
   };
 
+  const suggestClientCode = async () => {
+    try {
+      const response = (await request("/api/clients/add-new/suggest-client-code", {
+        headers: authHeader,
+      })) as { client_code: string };
+      setField("client_code", response.client_code);
+      setClientCodeHint(`Suggested: ${response.client_code}`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to suggest client code");
+    }
+  };
+
   useEffect(() => {
     if (!form.server_id || !form.username.trim()) {
       setUsernameAvailability("");
@@ -391,16 +424,11 @@ export default function AddNewClient() {
     try {
       const formData = new FormData();
       formData.append("file", file);
-      const response = await fetch(`${API_BASE}/api/clients/add-new/upload?kind=${kind}`, {
+      const data = (await request(`/api/clients/add-new/upload?kind=${kind}`, {
         method: "POST",
         headers: authHeader,
         body: formData,
-      });
-      if (!response.ok) {
-        const text = await response.text();
-        throw new Error(text || "Upload failed");
-      }
-      const data = (await response.json()) as { file_path: string };
+      })) as { file_path: string };
       if (kind === "profile") setField("profile_picture_path", data.file_path);
       if (kind === "nid") setField("nid_picture_path", data.file_path);
       if (kind === "registration") setField("registration_picture_path", data.file_path);
@@ -416,6 +444,10 @@ export default function AddNewClient() {
     event.preventDefault();
     if (!form.server_id || !form.customer_name || !form.username || !form.password) {
       setError("Server, Customer Name, Username, and Password are required.");
+      return;
+    }
+    if (!form.client_code.trim()) {
+      setError("Client Code is required. You can enter manually or click Auto Suggest.");
       return;
     }
 
@@ -459,6 +491,7 @@ export default function AddNewClient() {
       });
       setMessage(`Client created successfully. Username: ${result.username}`);
       setForm(createInitialForm());
+      setClientCodeHint("");
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Failed to create client";
       setError(msg);
@@ -671,6 +704,31 @@ export default function AddNewClient() {
         </span>
       }>
         <div className="grid gap-3 md:grid-cols-5">
+          <div>
+            <div className="mb-1 flex items-center justify-between">
+              <FieldLabel text="Client Code" required />
+              <button
+                type="button"
+                onClick={suggestClientCode}
+                className="inline-flex items-center gap-1 rounded-xl bg-[#234a69] px-2 py-1 text-[10px] font-semibold text-white"
+                title="Auto suggest unique client code"
+              >
+                <Plus className="h-3 w-3" />
+                AUTO
+              </button>
+            </div>
+            <input
+              className="w-full rounded border border-slate-300 bg-[#eef3f7] px-3 py-2 text-sm"
+              value={form.client_code}
+              onChange={(e) => {
+                const normalized = e.target.value.toUpperCase().replace(/[^A-Z0-9_-]/g, "");
+                setField("client_code", normalized);
+                if (clientCodeHint) setClientCodeHint("");
+              }}
+              placeholder="Example: C00001"
+            />
+            <div className="mt-1 text-xs text-slate-500">{clientCodeHint || "Manual entry supported. Must be unique."}</div>
+          </div>
           <div><div className="mb-1 flex items-center justify-between"><FieldLabel text="Package" required /><button type="button" onClick={() => openQuickModal("package")} className="inline-flex items-center gap-1 rounded-xl bg-[#234a69] px-2 py-1 text-[10px] font-semibold text-white"><Plus className="h-3 w-3" />PACKAGE</button></div><select className="w-full rounded border border-slate-300 px-3 py-2 text-sm" value={form.package_id} onChange={(e) => { setField("package_id", e.target.value); const selected = options?.packages.find((pkg) => pkg.id === Number(e.target.value)); if (selected && !form.monthly_bill) setField("monthly_bill", selected.price); }}><option value="">Select</option>{options?.packages.map((pkg) => <option key={pkg.id} value={pkg.id}>{pkg.name}</option>)}</select></div>
           <div><FieldLabel text="Profile" required /><select className="w-full rounded border border-slate-300 px-3 py-2 text-sm" value={form.profile} onChange={(e) => setField("profile", e.target.value)}><option value="">{profileLoading ? "Loading..." : "Select"}</option>{serverProfiles.map((profile) => <option key={profile} value={profile}>{profile}</option>)}</select></div>
           <div><div className="mb-1 flex items-center justify-between"><FieldLabel text="Client Type" required /><button type="button" onClick={() => openQuickModal("client-type")} className="inline-flex items-center gap-1 rounded-xl bg-[#234a69] px-2 py-1 text-[10px] font-semibold text-white"><Plus className="h-3 w-3" />CLIENT TYPE</button></div><select className="w-full rounded border border-slate-300 px-3 py-2 text-sm" value={form.client_type} onChange={(e) => setField("client_type", e.target.value)}><option value="">Select</option>{option(options?.client_types)}</select></div>

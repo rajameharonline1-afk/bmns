@@ -10,11 +10,23 @@ from sqlalchemy.orm import Session
 from app.api.deps import get_db
 from app.core.deps import require_roles
 from app.models.client import Client, ConnectionStatus
+from app.models.client_portal import (
+    ClientPortalPost,
+    ClientPortalPostType,
+    ClientSupportTicket,
+    ClientSupportTicketStatus,
+    ClientUsageStat,
+)
 from app.models.configuration_item import ConfigurationItem
 from app.models.invoice import Invoice, InvoiceStatus, Payment
 from app.models.user import User
 from app.schemas.dashboard import (
     AdminDashboardSummary,
+    ClientDashboardSummary,
+    ClientDashboardTile,
+    ClientPostItem,
+    ClientTicketSummary,
+    ClientUsageSummary,
     FinanceMetric,
     KpiCardData,
     PerformancePoint,
@@ -33,6 +45,14 @@ def _to_int(value: int | None) -> int:
 def _to_money(value: Decimal | float | int | None) -> str:
     amount = Decimal(value or 0)
     return f"{amount:.2f}"
+
+
+def _uptime_label(seconds: int | None) -> str:
+    total = max(int(seconds or 0), 0)
+    days, rem = divmod(total, 86400)
+    hours, rem = divmod(rem, 3600)
+    minutes, sec = divmod(rem, 60)
+    return f"{days}D {hours}H {minutes}M {sec}S"
 
 
 @router.get("/admin-summary", response_model=AdminDashboardSummary)
@@ -177,4 +197,239 @@ def admin_summary(
         monthly_new_clients=monthly_new_clients,
         performance=performance,
         tickets=TicketSummary(),
+    )
+
+
+@router.get("/client-summary", response_model=ClientDashboardSummary)
+def client_summary(
+    db: Session = Depends(get_db),
+    current_user=Depends(require_roles("client", "admin", "manager", "employee")),
+) -> ClientDashboardSummary:
+    client = db.query(Client).filter(Client.user_id == current_user.id).first()
+    if client is None:
+        client = db.query(Client).order_by(Client.id.asc()).first()
+    if client is None:
+        return ClientDashboardSummary(
+            login_code="N/A",
+            server_ip="N/A",
+            package_name="No Package",
+            package_speed_label="0 Mbps",
+            tiles=[
+                ClientDashboardTile(
+                    title="Package",
+                    value="No Package",
+                    subtitle="0 Mbps",
+                    footer_action="Migration/Update",
+                    tone="purple",
+                ),
+                ClientDashboardTile(
+                    title="Monthly Bill",
+                    value="0.00",
+                    subtitle="No billing data available.",
+                    footer_action="My Profile",
+                    tone="purple",
+                ),
+                ClientDashboardTile(
+                    title="Paid(Advance)",
+                    value="0.00",
+                    subtitle="No advance available.",
+                    footer_action="Recharge/Pay Bill",
+                    tone="green",
+                ),
+                ClientDashboardTile(
+                    title="Expiry Date",
+                    value="N/A",
+                    subtitle="No service expiry set.",
+                    footer_action="Extend BillingDate",
+                    tone="red",
+                ),
+                ClientDashboardTile(
+                    title="Service Invoice",
+                    value="Upcoming",
+                    subtitle="No invoice data.",
+                    footer_action="Migration/Update",
+                    tone="purple",
+                ),
+                ClientDashboardTile(
+                    title="Service Due",
+                    value="0.00",
+                    subtitle="No due amount.",
+                    footer_action="Migration/Update",
+                    tone="purple",
+                ),
+            ],
+            usage=ClientUsageSummary(
+                uptime_label=_uptime_label(0),
+                downloaded_gb="0.0",
+                uploaded_gb="0.0",
+            ),
+            ticket=ClientTicketSummary(title="Not Found", status="Processing", action_label="New Ticket"),
+            message=None,
+            news=[],
+            notices=[],
+        )
+
+    total_invoice = db.query(func.coalesce(func.sum(Invoice.total_amount), 0)).filter(Invoice.client_id == client.id).scalar()
+    total_paid = (
+        db.query(func.coalesce(func.sum(Payment.amount), 0))
+        .join(Invoice, Invoice.id == Payment.invoice_id)
+        .filter(Invoice.client_id == client.id)
+        .scalar()
+    )
+    due_total = (
+        db.query(func.coalesce(func.sum(Invoice.total_amount), 0))
+        .filter(Invoice.client_id == client.id)
+        .filter(Invoice.status.in_([InvoiceStatus.issued, InvoiceStatus.overdue, InvoiceStatus.draft]))
+        .scalar()
+    )
+    month_bill = (
+        db.query(func.coalesce(func.sum(Invoice.total_amount), 0))
+        .filter(Invoice.client_id == client.id)
+        .filter(extract("year", Invoice.issue_date) == date.today().year)
+        .filter(extract("month", Invoice.issue_date) == date.today().month)
+        .scalar()
+    )
+    advance = max(Decimal(total_paid or 0) - Decimal(total_invoice or 0), Decimal(0))
+
+    usage = db.query(ClientUsageStat).filter(ClientUsageStat.client_code == client.client_code).first()
+    if usage is None:
+        usage = ClientUsageStat(client_code=client.client_code, uptime_seconds=216345, downloaded_gb=43, uploaded_gb=13)
+        db.add(usage)
+        db.commit()
+        db.refresh(usage)
+
+    latest_ticket = (
+        db.query(ClientSupportTicket)
+        .filter(ClientSupportTicket.client_code == client.client_code)
+        .order_by(ClientSupportTicket.created_at.desc())
+        .first()
+    )
+    if latest_ticket is None:
+        latest_ticket = ClientSupportTicket(
+            client_code=client.client_code,
+            subject="Initial setup support",
+            details="Support request is in processing queue.",
+            status=ClientSupportTicketStatus.processing,
+        )
+        db.add(latest_ticket)
+        db.commit()
+        db.refresh(latest_ticket)
+
+    posts = (
+        db.query(ClientPortalPost)
+        .filter(
+            (ClientPortalPost.target_client_code.is_(None)) | (ClientPortalPost.target_client_code == client.client_code)
+        )
+        .order_by(ClientPortalPost.display_order.asc(), ClientPortalPost.published_at.desc())
+        .all()
+    )
+    if not posts:
+        posts = [
+            ClientPortalPost(
+                post_type=ClientPortalPostType.message,
+                title="Support Created",
+                body=f"প্রিয় গ্রাহক, আপনার ক্লায়েন্ট কোড: {client.pppoe_username}। সাপোর্ট টিম শিগগিরই যোগাযোগ করবে।",
+                display_order=0,
+            ),
+            ClientPortalPost(
+                post_type=ClientPortalPostType.news,
+                title="বকেয়া মাশ",
+                body="অনলাইনে বিল পেমেন্ট করুন।",
+                display_order=1,
+            ),
+            ClientPortalPost(
+                post_type=ClientPortalPostType.news,
+                title="FTP & Live TV Server",
+                body="FTP & Live TV দেখতে ক্লিক করুন।",
+                display_order=2,
+            ),
+            ClientPortalPost(
+                post_type=ClientPortalPostType.notice,
+                title="Scheduled maintenance notice",
+                body="Tonight 2AM-3AM maintenance window.",
+                display_order=1,
+            ),
+        ]
+        db.add_all(posts)
+        db.commit()
+
+    def post_to_schema(post: ClientPortalPost) -> ClientPostItem:
+        published = (post.published_at or date.today()).strftime("%B %d, %Y")
+        return ClientPostItem(
+            id=post.id,
+            title=post.title,
+            body=post.body,
+            image_path=post.image_path,
+            published_label=published,
+        )
+
+    message = next((post for post in posts if post.post_type == ClientPortalPostType.message), None)
+    news = [post_to_schema(post) for post in posts if post.post_type == ClientPortalPostType.news][:6]
+    notices = [post_to_schema(post) for post in posts if post.post_type == ClientPortalPostType.notice][:6]
+
+    ticket_status = latest_ticket.status.value if latest_ticket.status else "processing"
+    tiles = [
+        ClientDashboardTile(
+            title="Package",
+            value=client.plan.name if client.plan else "Basic",
+            subtitle=f"{client.plan.bandwidth_mbps if client.plan else 0}Mbps",
+            footer_action="Migration/Update",
+            tone="purple",
+        ),
+        ClientDashboardTile(
+            title="Monthly Bill",
+            value=_to_money(month_bill),
+            subtitle="You have to pay this amount in every month.",
+            footer_action="My Profile",
+            tone="purple",
+        ),
+        ClientDashboardTile(
+            title="Paid(Advance)",
+            value=_to_money(advance),
+            subtitle="You have advanced paid amount, no need to pay.",
+            footer_action="Recharge/Pay Bill",
+            tone="green",
+        ),
+        ClientDashboardTile(
+            title="Expiry Date",
+            value=client.expiry_date.strftime("%d-%b-%Y").upper() if client.expiry_date else "N/A",
+            subtitle="This is your internet expiry date.",
+            footer_action="Extend BillingDate",
+            tone="red",
+        ),
+        ClientDashboardTile(
+            title="Service Invoice",
+            value="Upcoming" if due_total else "No Invoice",
+            subtitle="Upcoming service invoices are shown here.",
+            footer_action="Migration/Update",
+            tone="purple",
+        ),
+        ClientDashboardTile(
+            title="Service Due",
+            value=_to_money(due_total),
+            subtitle="Pending service due amount.",
+            footer_action="Migration/Update",
+            tone="purple",
+        ),
+    ]
+
+    return ClientDashboardSummary(
+        login_code=client.client_code,
+        server_ip=client.ip_address,
+        package_name=client.plan.name if client.plan else "Basic",
+        package_speed_label=f"{client.plan.bandwidth_mbps if client.plan else 0}Mbps",
+        tiles=tiles,
+        usage=ClientUsageSummary(
+            uptime_label=_uptime_label(usage.uptime_seconds),
+            downloaded_gb=f"{usage.downloaded_gb:.1f}",
+            uploaded_gb=f"{usage.uploaded_gb:.1f}",
+        ),
+        ticket=ClientTicketSummary(
+            title=latest_ticket.subject if latest_ticket.subject else "Not Found",
+            status=ticket_status.title(),
+            action_label="New Ticket",
+        ),
+        message=post_to_schema(message) if message else None,
+        news=news,
+        notices=notices,
     )

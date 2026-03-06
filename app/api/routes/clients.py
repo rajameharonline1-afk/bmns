@@ -29,6 +29,7 @@ from app.schemas.client_list import (
 from app.schemas.client import ClientCreate, ClientRead, ClientUpdate
 from app.schemas.client_onboarding import (
     AddNewClientCreate,
+    AddNewClientCodeSuggestionRead,
     AddNewClientOptionItem,
     AddNewClientOptions,
     AddNewClientRead,
@@ -58,6 +59,16 @@ def _fmt_date(value: date | None) -> str:
     if not value:
         return ""
     return value.strftime("%Y %m %d")
+
+
+def _generate_client_code(db: Session) -> str:
+    latest_id = db.query(func.max(Client.id)).scalar() or 0
+    for candidate in range(int(latest_id) + 1, int(latest_id) + 10000):
+        code = f"C{candidate:05d}"
+        exists = db.query(Client.id).filter(Client.client_code == code).first()
+        if not exists:
+            return code
+    raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Unable to generate unique client code")
 
 
 def _sync_client_to_mikrotik_secret(
@@ -313,6 +324,14 @@ def add_new_client_username_check(
                 pass
 
 
+@router.get("/add-new/suggest-client-code", response_model=AddNewClientCodeSuggestionRead)
+def suggest_client_code(
+    db: Session = Depends(get_db),
+    _user=Depends(require_roles("admin", "manager", "employee")),
+) -> AddNewClientCodeSuggestionRead:
+    return AddNewClientCodeSuggestionRead(client_code=_generate_client_code(db))
+
+
 @router.post("/add-new", response_model=AddNewClientRead, status_code=status.HTTP_201_CREATED)
 def create_add_new_client(
     payload: AddNewClientCreate,
@@ -362,7 +381,15 @@ def create_add_new_client(
     ip_address = (payload.ip_address or "").strip() or "0.0.0.0"
     mac_address = (payload.mac_address or "").strip() or "00:00:00:00:00:00"
 
+    proposed_client_code = (payload.client_code or "").strip()
+    if not proposed_client_code:
+        proposed_client_code = _generate_client_code(db)
+    existing_client_code = db.query(Client.id).filter(Client.client_code == proposed_client_code).first()
+    if existing_client_code:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Client code already exists")
+
     client = Client(
+        client_code=proposed_client_code,
         user_id=user.id,
         plan_id=plan.id,
         pppoe_username=payload.username.strip(),
@@ -442,7 +469,7 @@ def create_add_new_client(
         server_id=payload.server_id,
         pppoe_username=payload.username.strip(),
         pppoe_password=payload.password,
-        client_code=str(client.id),
+        client_code=client.client_code,
         client_name=payload.customer_name.strip(),
         contact_number=payload.mobile_number,
         zone_name=payload.zone,
@@ -460,6 +487,7 @@ def create_add_new_client(
         id=onboarding.id,
         user_id=user.id,
         client_id=client.id,
+        client_code=client.client_code,
         customer_name=onboarding.customer_name,
         username=user.username,
     )
@@ -575,7 +603,7 @@ def list_view_clients(
 
         row = ClientListItem(
             client_id=client.id,
-            c_code=str(client.id),
+            c_code=client.client_code,
             id_or_ip=client.pppoe_username or "",
             password=client.pppoe_password or "",
             customer_name=customer_name,
@@ -658,6 +686,8 @@ def create_client(
     db: Session = Depends(get_db),
     _user=Depends(require_roles("admin", "manager", "employee")),
 ) -> Client:
+    if db.query(Client.id).filter(Client.client_code == payload.client_code).first():
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Client code already exists")
     client = Client(**payload.model_dump())
     db.add(client)
     db.commit()
@@ -690,7 +720,12 @@ def update_client(
     _user=Depends(require_roles("admin", "manager", "employee")),
 ) -> Client:
     client = get_client(db, client_id)
-    for field, value in payload.model_dump(exclude_unset=True).items():
+    payload_data = payload.model_dump(exclude_unset=True)
+    candidate_code = payload_data.get("client_code")
+    if candidate_code and candidate_code != client.client_code:
+        if db.query(Client.id).filter(Client.client_code == candidate_code).first():
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Client code already exists")
+    for field, value in payload_data.items():
         setattr(client, field, value)
     db.commit()
     db.refresh(client)

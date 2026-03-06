@@ -269,7 +269,7 @@ const MikrotikServerPage = () => {
         </div>
       </div>
 
-      <div className="rounded-lg border border-slate-200 bg-white shadow-sm">
+      <div className="ds-card">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 px-4 py-3">
           <div className="flex items-center gap-2 text-xs text-slate-500">
             <span>Show</span>
@@ -304,8 +304,8 @@ const MikrotikServerPage = () => {
         {error && <div className="px-4 py-2 text-xs text-red-600">{error}</div>}
 
         <div className="overflow-x-auto">
-          <table className="min-w-full text-xs">
-            <thead className="bg-[#21425a] text-white">
+          <table className="ds-table min-w-full text-xs">
+            <thead>
               <tr>
                 <th className="border-r border-white/20 px-3 py-2 text-left">Serial</th>
                 <th className="border-r border-white/20 px-3 py-2 text-left">ServerName</th>
@@ -354,19 +354,7 @@ const MikrotikServerPage = () => {
                   <td className="px-3 py-2">{server.mikrotik_version}</td>
                   <td className="px-3 py-2">{server.request_timeout_sec} sec.</td>
                   <td className="px-3 py-2">
-                    <button
-                      type="button"
-                      className={`relative inline-flex h-5 w-10 items-center rounded-full transition ${
-                        server.is_active ? "bg-blue-500" : "bg-slate-300"
-                      }`}
-                      onClick={() => toggleStatus(server)}
-                    >
-                      <span
-                        className={`inline-block h-4 w-4 rounded-full bg-white transition ${
-                          server.is_active ? "translate-x-5" : "translate-x-1"
-                        }`}
-                      />
-                    </button>
+                    <button type="button" title={server.is_active ? "Deactivate" : "Activate"} className={`ds-toggle ${server.is_active ? "on" : "off"}`} onClick={() => toggleStatus(server)} />
                   </td>
                   <td className="px-3 py-2">
                     <div className="flex items-center gap-2">
@@ -430,8 +418,8 @@ const MikrotikServerPage = () => {
       </div>
 
       {modalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
-          <div className="w-full max-w-xl rounded bg-white p-6 shadow-xl">
+        <div className="ds-modal-backdrop z-50 flex items-center justify-center px-4">
+          <div className="ds-modal w-full max-w-xl p-6">
             <div className="flex items-center justify-between">
               <h3 className="text-4 font-semibold text-slate-800">{editing ? "Edit Server" : "Add New Server"}</h3>
               <button type="button" onClick={closeModal} className="text-pink-300 hover:text-pink-400">
